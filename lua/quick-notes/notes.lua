@@ -6,15 +6,19 @@ local M = {};
 -- @field dir string
 -- @field file_type string
 -- @field files table
+-- @field last_note string
+-- @field open_command string
 local Notes = {};
 
 -- @param dir string
 -- @param file_type string
-function M:init(dir, file_type)
-	Noted = {};
+-- @param open_command? string
+function M:init(dir, file_type, open_command)
+	Notes = {};
 	Notes.dir = vim.fn.expand('$HOME') .. dir;
 	Notes.file_type = file_type;
 	Notes.files = {};
+	Notes.open_command = (open_command or "vsplit") .. " ";
 end
 
 -- @return table
@@ -22,21 +26,25 @@ function M:getNotes()
 	return Notes.files;
 end
 
--- @param note_name string
 -- @return string
-function M:new(note_name)
-	local note_file = Notes.dir .. "/" .. note_name .. '.' .. Notes.file_type;
+function M:new()
+	local note_name = vim.fn.input("Note name: ");
 
-	io.open(vim.fn.expand("$HOME") .. note_file, "w"):close();
+	local note_file = Notes.dir .. "/" .. note_name .. Notes.file_type;
+
+	Notes.last_note = note_file;
+	io.open(note_file, "w"):close();
+	vim.cmd(Notes.open_command .. note_file);
 
 	return note_file;
 end
 
 -- @param note string
 function M:openNote(note)
-	local notePath = vim.fn.expand("$HOME") .. Notes.dir .. '/' .. note .. Notes.file_type;
+	local notePath = Notes.dir .. '/' .. note;
 
-	-- TODO: open the note
+	Notes.last_note = notePath;
+	vim.cmd(Notes.open_command .. notePath);
 end
 
 function M:openLastNote()
@@ -44,21 +52,31 @@ function M:openLastNote()
 		return;
 	end
 
-	vim.cmd("e " .. Notes.last_note);
+	vim.cmd(Notes.open_command .. Notes.last_note);
 end
 
 function M:browse()
-	vim.cmd("vslit e " .. vim.expand("$HOME") .. Notes.dir)
+	vim.cmd("e " .. Notes.dir)
+end
+
+-- @param note string
+function M:delete(note)
+	local notePath = Notes.dir .. '/' .. note;
+
+	vim.fn.delete(notePath);
+
+	M:refreshFromDisk();
 end
 
 function M:refreshFromDisk()
+	Notes.files = {};
+
 	local dirData = vim.fn.readdir(Notes['dir']);
 
 	for i, item in pairs(dirData) do
 		if string.find(item, '.' .. Notes['file_type']) ~= nil then
 			table.insert(Notes.files, item)
 		else
-			print('sub item');
 			utils:mergeTables(Notes.files, self:readSubDirContent(item));
 		end
 	end
