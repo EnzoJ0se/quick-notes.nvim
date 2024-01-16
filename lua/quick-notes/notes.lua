@@ -68,12 +68,21 @@ function M:delete(note)
 	M:refreshFromDisk();
 end
 
+--@param note_name string
+function M:getNoteContent(note_name)
+	if vim.fn.getfsize(Notes.dir .. '/' .. note_name) <= 0 then
+		return nil;
+	end
+
+	return vim.fn.readfile(Notes.dir .. '/' .. note_name);
+end
+
 function M:refreshFromDisk()
 	Notes.files = {};
 
 	local dirData = vim.fn.readdir(Notes['dir']);
 
-	for i, item in pairs(dirData) do
+	for _, item in pairs(dirData) do
 		if string.find(item, '.' .. Notes['file_type']) ~= nil then
 			table.insert(Notes.files, item)
 		else
@@ -90,7 +99,7 @@ function M:readSubDirContent(dir)
 	local dirData = vim.fn.readdir(Notes['dir'] .. '/' .. dir);
 	local dataToReturn = {};
 
-	for i, item in pairs(dirData) do
+	for _, item in pairs(dirData) do
 		if string.find(item, '.' .. Notes['file_type']) ~= nil then
 			table.insert(dataToReturn, dir .. '/' .. item)
 		else
@@ -99,6 +108,12 @@ function M:readSubDirContent(dir)
 	end
 
 	return dataToReturn;
+end
+
+-- @param note_name string
+-- @param content string
+function M:saveNote(note_name, content)
+	require("plenary.path"):new(Notes.dir .. '/' .. note_name):write(content, "w+")
 end
 
 return M;
