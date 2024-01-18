@@ -1,7 +1,5 @@
 local utils = require('quick-notes.utils');
 
-local M = {};
-
 -- @class Notes
 -- @field dir string
 -- @field file_type string
@@ -13,7 +11,7 @@ local Notes = {};
 -- @param dir string
 -- @param file_type string
 -- @param open_command? string
-function M:init(dir, file_type, open_command)
+function Notes:init(dir, file_type, open_command)
 	Notes = {};
 	Notes.dir = vim.fn.expand('$HOME') .. dir;
 	Notes.file_type = file_type;
@@ -22,13 +20,17 @@ function M:init(dir, file_type, open_command)
 end
 
 -- @return table
-function M:getNotes()
+function Notes:getNotes()
 	return Notes.files;
 end
 
 -- @return string
-function M:new()
+function Notes:new()
 	local note_name = vim.fn.input("Note name: ");
+
+	if note_name == nil or note_name == "" then
+		return;
+	end
 
 	local note_file = Notes.dir .. "/" .. note_name .. Notes.file_type;
 
@@ -40,14 +42,18 @@ function M:new()
 end
 
 -- @param note string
-function M:openNote(note)
+function Notes:openNote(note)
+	if not Notes:isValidNote(note) then
+		return;
+	end
+
 	local notePath = Notes.dir .. '/' .. note;
 
 	Notes.last_note = notePath;
 	vim.cmd(Notes.open_command .. notePath);
 end
 
-function M:openLastNote()
+function Notes:openLastNote()
 	if Notes.last_note == nil then
 		return;
 	end
@@ -55,21 +61,27 @@ function M:openLastNote()
 	vim.cmd(Notes.open_command .. Notes.last_note);
 end
 
-function M:browse()
+function Notes:browse()
 	vim.cmd("e " .. Notes.dir)
 end
 
 -- @param note string
-function M:delete(note)
+function Notes:delete(note)
+	if not Notes:isValidNote(note) then
+		return;
+	end
+
 	local notePath = Notes.dir .. '/' .. note;
 
 	vim.fn.delete(notePath);
 
-	M:refreshFromDisk();
+	Notes:refreshFromDisk();
+
+	print("Deleted note: " .. notePath .. "successfully");
 end
 
 --@param note_name string
-function M:getNoteContent(note_name)
+function Notes:getNoteContent(note_name)
 	if vim.fn.getfsize(Notes.dir .. '/' .. note_name) <= 0 then
 		return nil;
 	end
@@ -77,7 +89,7 @@ function M:getNoteContent(note_name)
 	return vim.fn.readfile(Notes.dir .. '/' .. note_name);
 end
 
-function M:refreshFromDisk()
+function Notes:refreshFromDisk()
 	Notes.files = {};
 
 	local dirData = vim.fn.readdir(Notes['dir']);
@@ -95,7 +107,7 @@ end
 
 -- @param dir string
 -- @return table
-function M:readSubDirContent(dir)
+function Notes:readSubDirContent(dir)
 	local dirData = vim.fn.readdir(Notes['dir'] .. '/' .. dir);
 	local dataToReturn = {};
 
@@ -112,8 +124,16 @@ end
 
 -- @param note_name string
 -- @param content string
-function M:saveNote(note_name, content)
-	require("plenary.path"):new(Notes.dir .. '/' .. note_name):write(content, "w+")
+function Notes:saveNote(note_name, content)
+	require("plenary.path"):new(Notes.dir .. "/" .. note_name):write(content, "w+");
+
+	print("Saved " .. Notes.dir .. "/" .. note_name .. " successfully");
 end
 
-return M;
+function Notes:isValidNote(note_name)
+	return note_name ~= "============================================================================================"
+		and note_name ~= "C-N = New Note | C-B = Browse Notes | C-O = Open  Note  | C-D = Delete Note | Q = Close Menu"
+		and note_name ~= "============================================================================================"
+end
+
+return Notes;

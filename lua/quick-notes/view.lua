@@ -1,116 +1,146 @@
-local M = {};
+local buffer = require("quick-notes.buffer");
+local notes = require("quick-notes.notes");
 
 -- @class ViewSettings
 -- @field width_ratio number
+-- @field title string
+-- @field row number
+-- @field col number
+-- @field height number
 local ViewSettings = {};
 
--- @class NotesWin
+-- @class View
+-- @field settings ViewSettings
 -- @field win_id number
--- @field buffr number
+-- @field buffr buffer
 -- @field is_closing boolean
-local NotesWin = {};
+local View = {};
 
--- @param opts ViewSettings|nil
-function M:init(opts)
+-- @param opts? ViewSettings|nil
+function View:init(opts)
 	if opts then
-		ViewSettings = opts
+		View.settings = opts;
 	else
-		ViewSettings.width_ratio = 0.80
+		View.settings = { width_ratio = 0.80 };
 	end
 end
 
--- @param title string|nil
--- @param rows number
-function M:createView(title, rows)
+-- @param opts ViewSettings
+-- return number, buffer
+function View:createView(opts)
 	local view = vim.api.nvim_list_uis();
-	local width = math.floor(view[1].width * ViewSettings.width_ratio);
+	local width = math.floor(view[1].width * (View.settings.width_ratio or 0.8));
 
-	local buffer = vim.api.nvim_create_buf(false, true);
-	local win = vim.api.nvim_open_win(buffer, true, {
+	local buffr = buffer:new();
+
+	local win = vim.api.nvim_open_win(buffer.id, true, {
 		relative = "editor",
-		title = title or "Notes",
+		title = opts.title or "Notes",
 		title_pos = "",
-		row = rows,
+		row = opts.row or 8,
 		col = math.floor((vim.o.columns - width) / 2),
 		width = width,
-		height = 10,
+		height = opts.height or 10,
 		style = "minimal",
-		border = "single",
+		border = "rounded",
 	});
 
-	NotesWin.win_id = win;
-	NotesWin.buffr = buffer;
+	View.win_id = win;
+	View.buffr = buffr;
 
 	return win, buffer
 end
 
-function M:closeView()
-	if NotesWin.is_closing then
+function View:closeView()
+	if View.is_closing then
 		return;
 	end
 
-	NotesWin.is_closing = true;
+	View.is_closing = true;
 
-	if NotesWin.buffr ~= nil and vim.api.nvim_buf_is_valid(NotesWin.buffr) then
-		vim.api.nvim_buf_delete(NotesWin.buffr, { force = true });
+	if View.buffr ~= nil then
+		View.buffr:close();
 	end
 
-	if NotesWin.win_id ~= nil and vim.api.nvim_win_is_valid(NotesWin.win_id) then
-		vim.api.nvim_win_close(NotesWin.win_id, true);
+	if View.win_id ~= nil and vim.api.nvim_win_is_valid(View.win_id) then
+		vim.api.nvim_win_close(View.win_id, true);
 	end
 
-	NotesWin.win_id = nil;
-	NotesWin.buffr = nil;
-	NotesWin.is_closing = false;
+	View.win_id = nil;
+	View.buffr = nil;
+	View.is_closing = false;
 end
 
 -- @param content? table
--- @param title? string
--- @return number, number
-function M:toggleView(content, title)
-	if NotesWin.win_id ~= nil then
-		M:closeView();
+-- @param opts ViewSettings
+-- @return number, buffer
+function View:toggleView(content, opts)
+	if View.win_id ~= nil then
+		View:closeView();
 
 		return nil, nil;
 	end
 
-	local win_id, buffr = M:createView(title, table.getn(content or {}));
+	local win_id = View:createView(opts or { row = table.getn(content or {}) });
 
 	if content ~= nil then
-		vim.api.nvim_buf_set_lines(buffr, 0, -1, true, content)
+		View.buffr:setBufferContent(content);
 	end
 
-	vim.keymap.set("n", "q", function() M:toggleView() end, { buffer = buffr, silent = true });
-	vim.keymap.set("n", "<ESC>", function() M:toggleView() end, { buffer = buffr, silent = true });
+	vim.keymap.set("n", "q", function() View:toggleView() end, { buffer = View.buffr.id, silent = true });
+	vim.keymap.set("n", "<ESC>", function() View:toggleView() end, { buffer = View.buffr.id, silent = true });
 
 	vim.api.nvim_create_autocmd({ "BufLeave" }, {
 		group = require("quick-notes").augroup_id,
-		buffer = buffr,
+		buffer = View.buffr.id,
 		callback = function()
 			require("quick-notes").view:toggleView()
 		end,
 	})
 
-	return win_id, buffr
+	return win_id, buffer
 end
 
--- @param content string
-function M:setBufferContent(content)
-	vim.api.nvim_buf_set_lines(NotesWin.buffr, 0, -1, true, content)
-end
+-- @param quick_notes quick_notes
+function View:setMenuKeyMaps(quick_notes)
+	vim.keymap.set("n", "<CR>", function()
+		local selected_file = vim.api.nvim_get_current_line();
 
--- return string
-function M:getBufferContent()
-	local data = vim.api.nvim_buf_get_lines(NotesWin.buffr, 0, -1, true);
-	local content = "";
+		quick_notes:toggleNotesMenu()
+		notes:openNote(selected_file);
+	end, { buffer = View.buffr.id, silent = true });
 
-	for _, line in pairs(data) do
-		if line ~= nil then
-			content = content .. line .. "\n";
+	vim.keymap.set("n", "<C-n>", function()
+		quick_notes:toggleNotesMenu()
+		notes:new()
+	end, { buffer = View.buffr.id, silent = true });
+
+	vim.keymap.set("n", "<C-b>", function()
+		quick_notes:toggleNotesMenu()
+		notes:browse();
+	end, { buffer = View.buffr.id, silent = true });
+
+	vim.keymap.set("n", "<C-d>", function()
+		local selected_file = vim.api.nvim_get_current_line();
+
+		if not notes:isValidNote(selected_file) then
+			return;
 		end
-	end
 
-	return content;
+		notes:delete(selected_file);
+		View:setBufferContent(notes:getNotes());
+	end, { buffer = View.buffr.id });
+
+	vim.keymap.set("n", "<C-o>", function()
+		local selected_file = vim.api.nvim_get_current_line();
+
+		if not notes:isValidNote(selected_file) then
+			return;
+		end
+
+		quick_notes:toggleNotesMenu();
+		quick_notes:toggleFilePreview(selected_file);
+	end, { buffer = View.buffr.id, silent = true });
 end
 
-return M;
+return View;
