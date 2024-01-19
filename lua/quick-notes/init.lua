@@ -20,16 +20,17 @@ function QuickNotes:setup(self, ops)
 	if ops == nil then
 		QuickNotes.notes_dir = "/QuickNotes";
 		QuickNotes.note_file_extension = ".md";
-		QuickNotes.open_command = "vsplit";
+		QuickNotes.open_command = "e";
 	else
 		QuickNotes = ops;
 	end
 
 	QuickNotes.augroup_id = QuickNotesGroup;
-	notes:init(QuickNotes.notes_dir, QuickNotes.note_file_extension);
+	notes:init(QuickNotes.notes_dir, QuickNotes.note_file_extension, QuickNotes.open_command);
 	view:init();
 
 	QuickNotes.view = view;
+	QuickNotes.notes = notes;
 
 	return self;
 end
@@ -52,18 +53,7 @@ function QuickNotes:toggleNotesMenu()
 
 	notes:refreshFromDisk();
 
-	local header = {
-		"============================================================================================",
-		"C-N = New Note | C-B = Browse Notes | C-O = Open  Note  | C-D = Delete Note | Q = Close Menu",
-		"============================================================================================",
-	};
-
-	local content = notes:getNotes();
-	table.insert(content, 1, header[3]);
-	table.insert(content, 1, header[2]);
-	table.insert(content, 1, header[1]);
-
-	local win_id, buffr = view:toggleView(content)
+	local win_id, buffr = view:toggleView(notes:getNotes())
 
 	if win_id ~= nil and buffr ~= nil then
 		QuickNotes.is_quick_menu_open = true;
@@ -84,10 +74,9 @@ function QuickNotes:toggleFilePreview(note_name)
 		return;
 	end
 
-	if not notes:isValidNote(note_name) then
-		return;
+	if QuickNotes.is_quick_menu_open then
+		QuickNotes:toggleNotesMenu();
 	end
-
 
 	local win_id, buffr = view:toggleView(notes:getNoteContent(note_name), {
 		title = note_name,
@@ -112,6 +101,12 @@ function QuickNotes:toggleFilePreview(note_name)
 	end
 
 	QuickNotes.is_file_preview_open = false;
+end
+
+-- @param note string
+-- @param open_method? string
+function QuickNotes:openNote(note, open_method)
+	notes:openNote(note, open_method);
 end
 
 function QuickNotes:openLastNote()

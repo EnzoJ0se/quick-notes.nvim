@@ -36,7 +36,7 @@ function View:createView(opts)
 	local win = vim.api.nvim_open_win(buffer.id, true, {
 		relative = "editor",
 		title = opts.title or "Notes",
-		title_pos = "",
+		title_pos = "center",
 		row = opts.row or 8,
 		col = math.floor((vim.o.columns - width) / 2),
 		width = width,
@@ -76,25 +76,25 @@ end
 -- @return number, buffer
 function View:toggleView(content, opts)
 	if View.win_id ~= nil then
-		View:closeView();
+		self:closeView();
 
 		return nil, nil;
 	end
 
-	local win_id = View:createView(opts or { row = table.getn(content or {}) });
+	local win_id = self:createView(opts or { row = table.getn(content or {}) });
 
 	if content ~= nil then
 		View.buffr:setBufferContent(content);
 	end
 
-	vim.keymap.set("n", "q", function() View:toggleView() end, { buffer = View.buffr.id, silent = true });
-	vim.keymap.set("n", "<ESC>", function() View:toggleView() end, { buffer = View.buffr.id, silent = true });
+	vim.keymap.set("n", "q", function() require('quick-notes'):toggle() end, { buffer = View.buffr.id, silent = true });
+	vim.keymap.set("n", "<ESC>", function() require('quick-notes'):toggle() end, { buffer = View.buffr.id, silent = true });
 
 	vim.api.nvim_create_autocmd({ "BufLeave" }, {
 		group = require("quick-notes").augroup_id,
 		buffer = View.buffr.id,
 		callback = function()
-			require("quick-notes").view:toggleView()
+			require("quick-notes"):toggle()
 		end,
 	})
 
@@ -123,23 +123,22 @@ function View:setMenuKeyMaps(quick_notes)
 	vim.keymap.set("n", "<C-d>", function()
 		local selected_file = vim.api.nvim_get_current_line();
 
-		if not notes:isValidNote(selected_file) then
-			return;
-		end
-
 		notes:delete(selected_file);
-		View:setBufferContent(notes:getNotes());
+		buffer:setBufferContent(notes:getNotes());
 	end, { buffer = View.buffr.id });
 
 	vim.keymap.set("n", "<C-o>", function()
 		local selected_file = vim.api.nvim_get_current_line();
 
-		if not notes:isValidNote(selected_file) then
-			return;
-		end
-
 		quick_notes:toggleNotesMenu();
 		quick_notes:toggleFilePreview(selected_file);
+	end, { buffer = View.buffr.id, silent = true });
+
+	vim.keymap.set("n", "<C-v>", function()
+		local selected_file = vim.api.nvim_get_current_line();
+
+		quick_notes:toggleNotesMenu();
+		quick_notes:openNote(selected_file, 'vsplit');
 	end, { buffer = View.buffr.id, silent = true });
 end
 

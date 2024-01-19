@@ -12,11 +12,12 @@ local Notes = {};
 -- @param file_type string
 -- @param open_command? string
 function Notes:init(dir, file_type, open_command)
-	Notes = {};
-	Notes.dir = vim.fn.expand('$HOME') .. dir;
-	Notes.file_type = file_type;
-	Notes.files = {};
-	Notes.open_command = (open_command or "vsplit") .. " ";
+	Notes = {
+		dir = vim.fn.expand('$HOME') .. dir;
+		file_type = file_type;
+		files = {};
+		open_command = (open_command or "vsplit") .. " ";
+	};
 end
 
 -- @return table
@@ -33,8 +34,8 @@ function Notes:new()
 	end
 
 	local note_file = Notes.dir .. "/" .. note_name .. Notes.file_type;
-
 	Notes.last_note = note_file;
+
 	io.open(note_file, "w"):close();
 	vim.cmd(Notes.open_command .. note_file);
 
@@ -42,15 +43,12 @@ function Notes:new()
 end
 
 -- @param note string
-function Notes:openNote(note)
-	if not Notes:isValidNote(note) then
-		return;
-	end
-
+-- @param open_method? string
+function Notes:openNote(note, open_method)
 	local notePath = Notes.dir .. '/' .. note;
 
 	Notes.last_note = notePath;
-	vim.cmd(Notes.open_command .. notePath);
+	vim.cmd((open_method or Notes.open_command) .. ' ' .. notePath);
 end
 
 function Notes:openLastNote()
@@ -58,7 +56,7 @@ function Notes:openLastNote()
 		return;
 	end
 
-	vim.cmd(Notes.open_command .. Notes.last_note);
+	self:openNote(Notes.last_note);
 end
 
 function Notes:browse()
@@ -67,15 +65,11 @@ end
 
 -- @param note string
 function Notes:delete(note)
-	if not Notes:isValidNote(note) then
-		return;
-	end
-
 	local notePath = Notes.dir .. '/' .. note;
 
 	vim.fn.delete(notePath);
 
-	Notes:refreshFromDisk();
+	self:refreshFromDisk();
 
 	print("Deleted note: " .. notePath .. "successfully");
 end
@@ -128,12 +122,6 @@ function Notes:saveNote(note_name, content)
 	require("plenary.path"):new(Notes.dir .. "/" .. note_name):write(content, "w+");
 
 	print("Saved " .. Notes.dir .. "/" .. note_name .. " successfully");
-end
-
-function Notes:isValidNote(note_name)
-	return note_name ~= "============================================================================================"
-		and note_name ~= "C-N = New Note | C-B = Browse Notes | C-O = Open  Note  | C-D = Delete Note | Q = Close Menu"
-		and note_name ~= "============================================================================================"
 end
 
 return Notes;
