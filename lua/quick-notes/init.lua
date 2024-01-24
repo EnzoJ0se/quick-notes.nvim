@@ -13,19 +13,13 @@ local QuickNotesGroup = vim.api.nvim_create_augroup("QuickNotes", {})
 -- @field is_file_preview_open boolean
 local QuickNotes = {};
 
--- @param self QuickNotes
--- @param ops QuickNotesOptions | nil
+-- @param opts QuickNotesOptions
 -- @return QuickNotes
-function QuickNotes:setup(self, ops)
-	if ops == nil then
-		QuickNotes.notes_dir = "/QuickNotes";
-		QuickNotes.note_file_extension = ".md";
-		QuickNotes.open_command = "e";
-	else
-		QuickNotes = ops;
-	end
-
+function QuickNotes:setup(opts)
+	QuickNotes.notes_dir = opts.notes_dir or "/QuickNotes";
+	QuickNotes.note_file_extension = opts.note_file_extension or ".md";
 	QuickNotes.augroup_id = QuickNotesGroup;
+
 	notes:init(QuickNotes.notes_dir, QuickNotes.note_file_extension, QuickNotes.open_command);
 	view:init();
 

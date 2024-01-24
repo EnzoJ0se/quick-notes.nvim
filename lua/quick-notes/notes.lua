@@ -36,7 +36,6 @@ function Notes:new()
 	local note_file = Notes.dir .. "/" .. note_name .. Notes.file_type;
 	Notes.last_note = note_file;
 
-	io.open(note_file, "w"):close();
 	vim.cmd(Notes.open_command .. note_file);
 
 	return note_file;

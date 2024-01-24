@@ -32,12 +32,13 @@ function View:createView(opts)
 	local width = math.floor(view[1].width * (View.settings.width_ratio or 0.8));
 
 	local buffr = buffer:new();
+	local height = opts.height or 10;
 
 	local win = vim.api.nvim_open_win(buffer.id, true, {
 		relative = "editor",
 		title = opts.title or "Notes",
 		title_pos = "center",
-		row = opts.row or 8,
+		row = math.floor(((vim.o.lines - height) / 2) - 1),
 		col = math.floor((vim.o.columns - width) / 2),
 		width = width,
 		height = opts.height or 10,
